@@ -1,0 +1,64 @@
+name: Android
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'app/**'
+      - 'resources/**'
+      - '.github/workflows/android.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+
+      - name: Cache build/_deps
+        uses: actions/cache@v3
+        with:
+          path: ${{github.workspace}}/build/_deps
+          key: ${{ matrix.os }}-build-deps
+          restore-keys: ${{ matrix.os }}-build-deps
+
+      - name: Cache .gradle
+        uses: actions/cache@v3
+        with:
+          path: ${{github.workspace}}/.gradle
+          key: ${{ matrix.os }}-gradle
+          restore-keys: ${{ matrix.os }}-gradle
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Set up CMake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: '3.30.3'
+
+      - name: Build project
+        run: |
+          chmod +x ./gradlew
+          ./gradlew build
+
+      - name: Upload debug APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-apks
+          path: ./app/build/outputs/apk/debug/*.apk
+
+      - name: Upload release APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apks
+          path: ./app/build/outputs/apk/release/*.apk

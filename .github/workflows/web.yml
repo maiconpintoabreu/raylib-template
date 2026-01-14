@@ -1,0 +1,78 @@
+name: Web
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'resources/**'
+      - '.github/workflows/web.yml'
+    
+permissions:
+  contents: read
+
+jobs:
+  build-web:
+    permissions:
+      contents: write       # for actions/upload-release-asset to upload release asset
+    runs-on: ubuntu-latest
+    
+    env:
+      PROJECT_NAME: raylib-template
+      PROJECT_BUILD_PATH: build
+      PROJECT_RELEASE_PATH: ${{ github.event.repository.name }}_web
+      PROJECT_CUSTOM_FLAGS: ""
+      PROJECT_RESOURCES_PATH: resources
+
+    steps:
+      - name: Checkout Project
+        uses: actions/checkout@v4.2.1
+
+      - name: Cache build/_deps
+        uses: actions/cache@v3
+        with:
+          path: ${{github.workspace}}/build/_deps
+          key: ${{ matrix.os }}-build-deps
+          restore-keys: ${{ matrix.os }}-build-deps
+
+      - name: Setup Environment
+        run: | 
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3 libglfw3 libglfw3-dev libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libxext-dev libxfixes-dev libwayland-dev libxkbcommon-dev cmake
+          mkdir -p ${{ env.PROJECT_RELEASE_PATH }}/${{ env.PROJECT_RESOURCES_PATH }}
+          ls
+        shell: bash
+  
+      - name: Setup emsdk
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.71
+          actions-cache-folder: 'emsdk-cache'
+
+      # Build emscripten project using a raylibshell html file
+      - name: Configure Project
+        run: |
+          cd ${{ env.PROJECT_BUILD_PATH }} && emcmake cmake .. -DPLATFORM=Web -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXECUTABLE_SUFFIX=".html" -DPROJECT_RESOURCES_PATH=${{ env.PROJECT_RESOURCES_PATH }}
+          
+      - name: Build Project
+        run: |
+          cd ${{ env.PROJECT_BUILD_PATH }} && emmake make BUILD_MODE=RELEASE PROJECT_CUSTOM_FLAGS=${{ env.PROJECT_CUSTOM_FLAGS }}
+          ls ${{ env.PROJECT_NAME }}
+          cp ${{ env.PROJECT_NAME }}/${{env.PROJECT_NAME}}.html ${{ env.PROJECT_NAME }}/index.html
+      
+      - name: Generate Artifacts
+        run: |
+          # ls ${{ env.PROJECT_BUILD_PATH }}
+          cp -r ${{ env.PROJECT_BUILD_PATH }}/${{ env.PROJECT_NAME }} ${{ env.PROJECT_RELEASE_PATH }}
+          cp README.md ${{ env.PROJECT_RELEASE_PATH }}
+          cp LICENSE ${{ env.PROJECT_RELEASE_PATH }}
+          ls ${{ env.PROJECT_RELEASE_PATH }}
+          # 7z a ./${{ env.PROJECT_RELEASE_PATH }}.zip ./${{ env.PROJECT_RELEASE_PATH }}
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PROJECT_RELEASE_PATH }}
+          path: ./${{ env.PROJECT_RELEASE_PATH }}

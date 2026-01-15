@@ -7,6 +7,13 @@
 #include "raylib.h"
 #endif
 
+#if defined(PLATFORM_DESKTOP)
+#define GLSL_VERSION            "330"
+#elif  defined(PLATFORM_ANDROID)
+#define GLSL_VERSION            "320es"
+#else
+#define GLSL_VERSION            "100"
+#endif
 #include "raymath.h"
 #include "player.h"
 #include "resource_loader.h"
@@ -24,12 +31,12 @@ typedef struct Asteroid{
     Vector2 position; 
     Vector2 positionOffset; 
     Vector2 acceleration; 
-    float rotationSpeed; 
+//    float rotationSpeed;
 } Asteroid;
 
 typedef struct Entity{
     EntityType type;
-    bool isAlive; 
+    bool isAlive;
     union {
         Player player;
         Asteroid asteroid;
@@ -50,8 +57,6 @@ float virtualLeftBorder = 0.0f;
 float virtualRightBorder = 0.0f;
 
 int currentScore = 0;
-int currentAsteroidToSpawn = 0;
-int currentMaxAsteroids = 50;
 int currentLevel = 1;
 
 Entity entities[MAX_ENTITIES] = {0};
@@ -62,6 +67,14 @@ bool gameOver = false;
 
 LevelData* levelDataLoaded = NULL;
 
+// TODO: Move it somewhere else
+Shader trailShader = {0};
+Shader starShader = {0};
+Texture2D tailTexture = {0};
+Texture2D starfieldTexture = {0};
+
+int secondsLoc = 0;
+
 bool CreateGameManager(void)
 {
 
@@ -69,6 +82,7 @@ bool CreateGameManager(void)
     //--------------------------------------------------------------------------------------
 
     InitWindow(screenWidth, screenHeight, "Raylib Template");
+
 
     virtualLeftBorder = 0.0f;
     virtualRightBorder = (float)GetScreenWidth();
@@ -80,10 +94,19 @@ bool CreateGameManager(void)
     else 
     {
         scaleRatio = (float)GetScreenHeight() / 800.0f;
-        virtualLeftBorder = (float)GetScreenWidth() * 0.5f - (225.0f * scaleRatio);
-        virtualRightBorder = (float)GetScreenWidth() * 0.5f + (225.0f * scaleRatio);
+        virtualLeftBorder = (float)GetScreenWidth()*0.5f - (225.0f*scaleRatio);
+        virtualRightBorder = (float)GetScreenWidth()*0.5f + (225.0f*scaleRatio);
     }
-
+    Image trailImage = GenImageColor((int)(10*scaleRatio), (int)(100*scaleRatio), BLACK);
+    tailTexture = LoadTextureFromImage(trailImage);
+    UnloadImage(trailImage);
+    Image starfieldImage = GenImageColor(GetScreenWidth(), GetScreenHeight(), BLACK);
+    starfieldTexture = LoadTextureFromImage(starfieldImage);
+    UnloadImage(starfieldImage);
+    trailShader = LoadShader(TextFormat("resources/shaders-%s/base.vs",GLSL_VERSION), TextFormat("resources/shaders-%s/trail.fs",GLSL_VERSION));
+    starShader = LoadShader(TextFormat("resources/shaders-%s/base.vs",GLSL_VERSION), TextFormat("resources/shaders-%s/starfield.fs",GLSL_VERSION));
+    // Get the uniform locations
+    secondsLoc = GetShaderLocation(starShader, "seconds");
     DisableCursor(); // Lock mouse to window center
 
     // Initialize Player
@@ -120,16 +143,17 @@ bool UpdateDrawFrame(void)
             else 
             {
                 scaleRatio = (float)GetScreenHeight() / 800.0f;
-                virtualLeftBorder = (float)GetScreenWidth() * 0.5f - (225.0f * scaleRatio);
-                virtualRightBorder = (float)GetScreenWidth() * 0.5f + (225.0f * scaleRatio);
+                virtualLeftBorder = (float)GetScreenWidth()*0.5f - (225.0f*scaleRatio);
+                virtualRightBorder = (float)GetScreenWidth()*0.5f + (225.0f*scaleRatio);
             }
         }
 
         delta = GetFrameTime();
         // physicDelta += delta;
-        currentWorldOffset += entities[0].player.speed * delta;
+        currentWorldOffset += entities[0].player.speed*delta;
         // TraceLog(LOG_INFO, "World Offset: %3.3f", currentWorldOffset);
-
+        float speedReduced = -1*currentWorldOffset/ 1000;
+        SetShaderValue(starShader, secondsLoc, &speedReduced, SHADER_UNIFORM_FLOAT);
         if (mapSize < currentWorldOffset)
         {
             gameOver = true;
@@ -145,11 +169,11 @@ bool UpdateDrawFrame(void)
                 levelDataLoaded[i].isSpawned = true;
                 int indexToUse = -1;
                 
-                for (int i = 0; i < MAX_ENTITIES; i++) 
+                for (int j = 1; j < MAX_ENTITIES; j++)
                 {
-                    if (!entities[i].isAlive)
+                    if (!entities[j].isAlive)
                     {
-                        indexToUse = i;
+                        indexToUse = j;
                         break;
                     }
                 }
@@ -173,8 +197,7 @@ bool UpdateDrawFrame(void)
                         asteroid = (Asteroid){
                             positionToSpawn, 
                             (Vector2){positionToSpawn.x, positionToSpawn.y + currentWorldOffset}, 
-                            (Vector2){0, 0}, 
-                            1.0f
+                            (Vector2){0, 0}
                         };
                         entities[indexToUse].isAlive = true;
                         entities[indexToUse].type = ASTEROID;
@@ -204,7 +227,7 @@ bool UpdateDrawFrame(void)
                     case ASTEROID: 
                         entities[i].asteroid.position = Vector2Add(entities[i].asteroid.position, Vector2Scale(entities[i].asteroid.acceleration, delta));
                         entities[i].asteroid.positionOffset.y  = entities[i].asteroid.position.y + currentWorldOffset;
-                        if (entities[i].asteroid.positionOffset.y >= GetScreenHeight())
+                        if (entities[i].asteroid.positionOffset.y >= (float)GetScreenHeight())
                         {
                             entities[i].isAlive = false;
                         }
@@ -223,7 +246,7 @@ bool UpdateDrawFrame(void)
             }
         }
 
-        // Player Autoshooting
+        // Player Auto shooting
         if (entities[0].player.playerGunCD < 0.0f)
         {
             entities[0].player.playerGunCD = entities[0].player.playerGunCDDefault;
@@ -237,7 +260,7 @@ bool UpdateDrawFrame(void)
                     entities[i].type = BULLET;
                     entities[i].bullet.isPlayer = true;
                     entities[i].bullet.position = entities[0].player.position;
-                    entities[i].bullet.acceleration = (Vector2){0, -1000};
+                    entities[i].bullet.acceleration = (Vector2){0, -BULLET_SPEED};
                     break;
                 }
             }
@@ -259,13 +282,13 @@ bool UpdateDrawFrame(void)
                     if (secondaryGunBulletCount == 0)
                     {
                         entities[i].bullet.position = entities[0].player.position;
-                        entities[i].bullet.position.x -= 10 * scaleRatio;
+                        entities[i].bullet.position.x -= 10*scaleRatio;
                     }
                     else {
                         entities[i].bullet.position = entities[0].player.position;
-                        entities[i].bullet.position.x += 10 * scaleRatio;
+                        entities[i].bullet.position.x += 10*scaleRatio;
                     }
-                    entities[i].bullet.acceleration = (Vector2){0, -1000};
+                    entities[i].bullet.acceleration = (Vector2){0, -BULLET_SPEED*0.8f};
                     secondaryGunBulletCount += 1;
                     if(secondaryGunBulletCount >= 2)
                     {
@@ -289,8 +312,8 @@ bool UpdateDrawFrame(void)
                                 if (entities[j].type == PLAYER)
                                 {
                                     if (CheckCollisionCircles(
-                                        entities[j].player.position, 20 * scaleRatio, 
-                                        entities[i].asteroid.positionOffset, 20 * scaleRatio)) 
+                                        entities[j].player.position, 20*scaleRatio, 
+                                        entities[i].asteroid.positionOffset, 20*scaleRatio)) 
                                     {
                                         entities[i].isAlive = false;
                                         gameOver = true;
@@ -303,8 +326,8 @@ bool UpdateDrawFrame(void)
                                 if (entities[i].bullet.isPlayer && entities[j].type == ASTEROID)
                                 {
                                     if (CheckCollisionCircles(
-                                        entities[i].bullet.position, 5 * scaleRatio, 
-                                        entities[j].asteroid.positionOffset, 20 * scaleRatio)) 
+                                        entities[i].bullet.position, 5*scaleRatio, 
+                                        entities[j].asteroid.positionOffset, 20*scaleRatio)) 
                                     {
                                         entities[i].isAlive = false;
                                         entities[j].isAlive = false;
@@ -314,8 +337,8 @@ bool UpdateDrawFrame(void)
                                 else if (!entities[i].bullet.isPlayer && entities[j].type == PLAYER)
                                 {
                                     if (CheckCollisionCircles(
-                                        entities[i].bullet.position, 5 * scaleRatio, 
-                                        entities[j].player.position, 20 * scaleRatio)) 
+                                        entities[i].bullet.position, 5*scaleRatio, 
+                                        entities[j].player.position, 20*scaleRatio)) 
                                     {
                                         entities[i].isAlive = false;
                                         gameOver = true;
@@ -339,17 +362,25 @@ bool UpdateDrawFrame(void)
     ClearBackground(DARKGRAY);
     if (!gameOver)
     {
+        BeginShaderMode(starShader);
+            // Draw a rectangle covering the whole screen to apply the shader
+            DrawTextureV(starfieldTexture, Vector2Zero(), WHITE);
+        EndShaderMode();
         for (int i = 0; i < MAX_ENTITIES; i++) 
         {
             if (entities[i].isAlive)
             {
                 switch (entities[i].type) {
                     case ASTEROID: 
-                        TraceLog(LOG_INFO, "Drawing Asteroid on: \{%3.3f, %3.3f}", entities[i].asteroid.positionOffset.x, entities[i].asteroid.positionOffset.y);
-                        DrawCircleV(entities[i].asteroid.positionOffset, 20 * scaleRatio, BROWN);
+                        DrawCircleV(entities[i].asteroid.positionOffset, 20*scaleRatio, BROWN);
                         break;
                     case BULLET: 
-                        DrawCircleV(entities[i].bullet.position, 5 * scaleRatio, YELLOW);
+                        BeginBlendMode(BLEND_ALPHA);
+                            BeginShaderMode(trailShader);
+                                DrawTextureV(tailTexture, (Vector2){ entities[i].bullet.position.x - 5*scaleRatio, entities[i].bullet.position.y }, YELLOW);
+                            EndShaderMode();
+                        EndBlendMode();
+                        DrawCircleV(entities[i].bullet.position, 5*scaleRatio, YELLOW);
                         break;
                     default:
                         break;
@@ -362,7 +393,7 @@ bool UpdateDrawFrame(void)
             {
                 switch (entities[i].type) {
                     case PLAYER: 
-                        TraceLog(LOG_INFO, "Drawing Player on: \{%3.3f, %3.3f}", entities[i].player.position.x, entities[i].player.position.y);
+//                        TraceLog(LOG_INFO, "Drawing Player on: \{%3.3f, %3.3f}", entities[i].player.position.x, entities[i].player.position.y);
                         DrawPlayer(entities[i].player, scaleRatio);
                         break;
                     default:
@@ -370,11 +401,11 @@ bool UpdateDrawFrame(void)
                 }
             }
         }
-        // DrawText(TextFormat("FPS: %i", GetFPS()), virtualLeftBorder + 10 * scaleRatio, (int)((float)GetScreenHeight() * .1f), (int)(20.0f * scaleRatio), RED);
-        DrawText(TextFormat("Score: %i", currentScore), virtualLeftBorder + 10 * scaleRatio, (int)((float)GetScreenHeight() * .1f), (int)(20.0f * scaleRatio), GREEN);
+        // DrawText(TextFormat("FPS: %i", GetFPS()), virtualLeftBorder + 10*scaleRatio, (int)((float)GetScreenHeight()*.1f), (int)(20.0f*scaleRatio), RED);
+        DrawText(TextFormat("Score: %i", currentScore), (int)(virtualLeftBorder + 10.0f*scaleRatio), (int)((float)GetScreenHeight()*.1f), (int)(20.0f*scaleRatio), GREEN);
 
-        DrawRectangleRec((Rectangle){0, 0, virtualLeftBorder, GetScreenHeight()}, BLACK);
-        DrawRectangleRec((Rectangle){virtualRightBorder, 0, GetScreenWidth(), GetScreenHeight()}, BLACK);
+        DrawRectangleRec((Rectangle){0, 0, virtualLeftBorder, (float)GetScreenHeight()}, BLACK);
+        DrawRectangleRec((Rectangle){virtualRightBorder, 0, (float)GetScreenWidth(), (float)GetScreenHeight()}, BLACK);
         DrawFPS(10, 10);
     }
     else 
@@ -390,5 +421,10 @@ bool UpdateDrawFrame(void)
 void DestroyGameManager(void)
 {
     DestroyPlayer(entities[0].player);
+
+    UnloadShader(starShader);
+    UnloadShader(trailShader);
+    UnloadTexture(tailTexture);
+    UnloadTexture(starfieldTexture);
 }
 #endif //GAMEMANAGER_H

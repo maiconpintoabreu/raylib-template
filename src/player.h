@@ -1,6 +1,7 @@
 #ifndef PLAYER_H
 #define PLAYER_H
 
+#include "raymath.h"
 #ifdef IS_ANDROID
 #include "raymob.h"
 #else
@@ -8,7 +9,9 @@
 #endif
 
 typedef struct Player{
-    Vector2 position; 
+    Vector2 startMovingPoint;
+    Vector2 currentMovingPoint;
+    Vector2 position;
     Texture2D spaceship;
     Rectangle spaceshipSourceRec;
     Rectangle spaceshipRec;
@@ -17,6 +20,7 @@ typedef struct Player{
     float playerGunCD;
     float playerSecondaryGunCD;
     float speed;
+    float movementSpeed;
     float leftLimit;
     float rightLimit;
 } Player;
@@ -70,6 +74,7 @@ Player CreatePlayer(float leftLimit, float rightLimit)
     player.leftLimit = leftLimit;
     player.rightLimit = rightLimit;
     player.speed = 100.0f;
+    player.movementSpeed = 10.0f;
 
     return player;
 }
@@ -80,15 +85,46 @@ void UpdatePlayer(Player *player, float delta)
 #ifdef IS_ANDROID
     if (GetTouchPointCount() > 0) 
     {
-        player->position.x = (float)GetTouchX();
-        player->position.y = (float)GetTouchY();
+        if (player->startMovingPoint.x < 0)
+        {
+            player->startMovingPoint.x = (float)GetTouchX();
+            player->startMovingPoint.y = (float)GetTouchY();
+        }
+        else
+        {
+            player->currentMovingPoint.x = (float)GetTouchX();
+            player->currentMovingPoint.y = (float)GetTouchY();
+        }
     } 
 #else
-    if(IsWindowFocused())
+    if(IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_UP) || IsKeyDown(KEY_DOWN))
     {
-        player->position = GetMousePosition();
+        player->startMovingPoint = Vector2Zero();
+        player->currentMovingPoint = Vector2Zero();
+
+        if(IsKeyDown(KEY_LEFT))
+        {
+            player->currentMovingPoint.x = -1;
+        }
+        if(IsKeyDown(KEY_RIGHT))
+        {
+            player->currentMovingPoint.x = 1;
+        }
+        if(IsKeyDown(KEY_UP))
+        {
+            player->currentMovingPoint.y = -1;
+        }
+        if(IsKeyDown(KEY_DOWN))
+        {
+            player->currentMovingPoint.y = 1;
+        }
     }
 #endif
+    else
+    {
+        player->startMovingPoint = (Vector2){-1, -1};
+        player->currentMovingPoint = (Vector2){-1, -1};
+    }
     if (player->position.x < player->leftLimit)
     {
         player->position.x = player->leftLimit;
@@ -106,9 +142,10 @@ void UpdatePlayer(Player *player, float delta)
     {
         player->position.y = (float)GetScreenHeight();
     }
+    Vector2 direction = Vector2Normalize(
+            Vector2Subtract(player->currentMovingPoint, player->startMovingPoint));
 
-    // Limit mouse to the borders
-    SetMousePosition(player->position.x, player->position.y);
+    player->position = Vector2Add(player->position, Vector2Scale(direction, player->movementSpeed));
 
     player->playerGunCD -= delta;
     player->playerSecondaryGunCD -= delta;

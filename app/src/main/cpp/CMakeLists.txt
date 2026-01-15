@@ -70,7 +70,6 @@ if(CMAKE_BUILD_TYPE MATCHES "Debug")
 endif()
 
 # Include raylib and raymob header files
-target_include_directories(${APP_LIB_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/deps/raylib")
 target_include_directories(${APP_LIB_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/deps/raymob")
 
 # Link required libraries to the native application

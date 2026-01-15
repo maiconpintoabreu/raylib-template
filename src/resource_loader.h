@@ -43,11 +43,19 @@ EntityType str2enum (const char *str)
 
 LevelData* LoadResources(void)
 {
-    int currentLevelDataItemindex = 0;
+    int currentLevelDataItemIndex = 0;
+    char *text;
+#ifdef IS_ANDROID
+    text = LoadFileText("resources/data.csv");
+    if (text != NULL)
+    {
+        TraceLog(LOG_INFO, "With Data");
+#else
     if (FileExists("resources/data.csv"))
     {
         TraceLog(LOG_INFO, "With Data");
-        char *text = LoadFileText("resources/data.csv");
+        text = LoadFileText("resources/data.csv");
+#endif
 
         // Loading all the text lines
         int lineCount = 0;
@@ -62,31 +70,41 @@ LevelData* LoadResources(void)
 
             // Keep printing tokens while one of the
             // delimiters present in str[].
-            levelData[currentLevelDataItemindex].level = atoll(token);
+            char* conversionError;
+            levelData[currentLevelDataItemIndex].level = strtol(token, &conversionError, 10);
             int valuePlace = 1;
             while (token != NULL) {
                 token = strtok(NULL, " , ");
                 switch (valuePlace) {
                     case 1:
-                        levelData[currentLevelDataItemindex].entityType = str2enum(token);
-                    break;
+                        levelData[currentLevelDataItemIndex].entityType = str2enum(token);
+                        break;
                     case 2:
-                        levelData[currentLevelDataItemindex].whereToSpawnX = atof(token);
-                    break;
+                        levelData[currentLevelDataItemIndex].whereToSpawnX = (float)strtod(token, &conversionError);
+                        break;
                     case 3:
-                        levelData[currentLevelDataItemindex].whereToSpawnY = atof(token);
-                    break;
+                        levelData[currentLevelDataItemIndex].whereToSpawnY = (float)strtod(token, &conversionError);
+                        break;
                     case 4:
-                        levelData[currentLevelDataItemindex].whenSpawn = atof(token);
-                    break;
+                        levelData[currentLevelDataItemIndex].whenSpawn = (float)strtod(token, &conversionError);
+                        break;
                     case 5:
-                        levelData[currentLevelDataItemindex].health = atof(token);
-                    break;
+                        levelData[currentLevelDataItemIndex].health = (float)strtod(token, &conversionError);
+                        break;
+                    default:
+                        break;
                 }
                 valuePlace += 1;
             }
-            levelData[currentLevelDataItemindex].isLoaded = true;
-            currentLevelDataItemindex += 1;
+            if (!*conversionError)
+            {
+                levelData[currentLevelDataItemIndex].isLoaded = true;
+                currentLevelDataItemIndex += 1;
+            }
+            else
+            {
+                TraceLog(LOG_ERROR, "Number Conversion error on Data to number: %s", conversionError);
+            }
         }
         UnloadTextLines(lines, lineCount);
     }

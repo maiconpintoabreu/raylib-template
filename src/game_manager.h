@@ -9,13 +9,13 @@
 
 #if defined(PLATFORM_DESKTOP)
 #define GLSL_VERSION            "330"
-#elif  defined(PLATFORM_ANDROID)
-#define GLSL_VERSION            "320es"
 #else
 #define GLSL_VERSION            "100"
 #endif
+
 #include "raymath.h"
 #include "player.h"
+#include "asteroid.h"
 #include "resource_loader.h"
 #include "enums.h"
 #include "config.h"
@@ -26,13 +26,6 @@ typedef struct Bullet{
     Vector2 acceleration;
     bool isPlayer;
 } Bullet;
-
-typedef struct Asteroid{
-    Vector2 position; 
-    Vector2 positionOffset; 
-    Vector2 acceleration; 
-//    float rotationSpeed;
-} Asteroid;
 
 typedef struct Star {
     Vector2 position;
@@ -78,6 +71,7 @@ LevelData* levelDataLoaded = NULL;
 // TODO: Move it somewhere else
 Shader trailShader = {0};
 Texture2D tailTexture = {0};
+Texture2D asteroidTexture = {0};
 
 bool CreateGameManager(void)
 {
@@ -103,7 +97,9 @@ bool CreateGameManager(void)
     Image trailImage = GenImageColor((int)(10*scaleRatio), (int)(100*scaleRatio), BLACK);
     tailTexture = LoadTextureFromImage(trailImage);
     UnloadImage(trailImage);
-    trailShader = LoadShader(TextFormat("resources/shaders-%s/base.vs",GLSL_VERSION), TextFormat("resources/shaders-%s/trail.fs",GLSL_VERSION));
+    trailShader = LoadShader(0, TextFormat("resources/shaders-%s/trail.fs",GLSL_VERSION));
+
+    asteroidTexture = LoadTexture("resources/asteroid.png");
 
     // Initialize Player
     Player player = CreatePlayer(virtualLeftBorder, virtualRightBorder);
@@ -212,11 +208,12 @@ bool UpdateDrawFrame(void)
                             asteroidX,
                             levelDataLoaded[i].whereToSpawnY*scaleRatio - currentWorldOffset
                         };
-                        asteroid = (Asteroid){
-                            positionToSpawn, 
-                            (Vector2){positionToSpawn.x, positionToSpawn.y + currentWorldOffset}, 
-                            (Vector2){0, 0}
-                        };
+                        asteroid = CreateAsteroid(asteroidTexture);
+                        asteroid.position = positionToSpawn; 
+                        asteroid.positionOffset = (Vector2){positionToSpawn.x, positionToSpawn.y + currentWorldOffset};
+                        asteroid.acceleration = (Vector2){0, 0};
+                        asteroid.rotationSpeed = (float)GetRandomValue(-1, 1)/2;
+                        
                         entities[indexToUse].isAlive = true;
                         entities[indexToUse].type = ASTEROID;
                         entities[indexToUse].asteroid = asteroid;
@@ -243,8 +240,8 @@ bool UpdateDrawFrame(void)
             {
                 switch (entities[i].type) {
                     case ASTEROID: 
-                        entities[i].asteroid.position = Vector2Add(entities[i].asteroid.position, Vector2Scale(entities[i].asteroid.acceleration, delta));
-                        entities[i].asteroid.positionOffset.y  = entities[i].asteroid.position.y + currentWorldOffset;
+                        UpdateAsteroid(&entities[i].asteroid, currentWorldOffset, delta);
+
                         if (entities[i].asteroid.positionOffset.y >= (float)GetScreenHeight())
                         {
                             entities[i].isAlive = false;
@@ -390,7 +387,7 @@ bool UpdateDrawFrame(void)
             {
                 switch (entities[i].type) {
                     case ASTEROID: 
-                        DrawCircleV(entities[i].asteroid.positionOffset, 20*scaleRatio, BROWN);
+                        DrawAsteroid(entities[i].asteroid, scaleRatio);
                         break;
                     case BULLET: 
                         BeginBlendMode(BLEND_ALPHA);
@@ -420,7 +417,7 @@ bool UpdateDrawFrame(void)
             }
         }
         // DrawText(TextFormat("FPS: %i", GetFPS()), virtualLeftBorder + 10*scaleRatio, (int)((float)GetScreenHeight()*.1f), (int)(20.0f*scaleRatio), RED);
-        DrawText(TextFormat("Score: %i", currentScore), (int)(virtualLeftBorder + 10.0f*scaleRatio), (int)((float)GetScreenHeight()*.1f), (int)(20.0f*scaleRatio), GREEN);
+        // DrawText(TextFormat("Score: %i", currentScore), (int)(virtualLeftBorder + 10.0f*scaleRatio), (int)((float)GetScreenHeight()*.1f), (int)(20.0f*scaleRatio), GREEN);
 
         DrawRectangleRec((Rectangle){0, 0, virtualLeftBorder, (float)GetScreenHeight()}, BLACK);
         DrawRectangleRec((Rectangle){virtualRightBorder, 0, (float)GetScreenWidth(), (float)GetScreenHeight()}, BLACK);
@@ -442,5 +439,6 @@ void DestroyGameManager(void)
 
     UnloadShader(trailShader);
     UnloadTexture(tailTexture);
+    UnloadTexture(asteroidTexture);
 }
 #endif //GAMEMANAGER_H

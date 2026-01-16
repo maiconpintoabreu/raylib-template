@@ -1,12 +1,13 @@
 #ifndef PLAYER_H
 #define PLAYER_H
 
-#include "raymath.h"
 #ifdef IS_ANDROID
 #include "raymob.h"
 #else
 #include "raylib.h"
 #endif
+
+#include "raymath.h"
 
 typedef struct Player{
     Vector2 startMovingPoint;
@@ -20,9 +21,11 @@ typedef struct Player{
     float playerGunCD;
     float playerSecondaryGunCD;
     float speed;
-    float movementSpeed;
+    float maxMovementSpeed;
+    float currentMovementSpeed;
     float leftLimit;
     float rightLimit;
+    bool isMoving;
 } Player;
 
 Player CreatePlayer(float leftLimit, float rightLimit)
@@ -74,78 +77,60 @@ Player CreatePlayer(float leftLimit, float rightLimit)
     player.leftLimit = leftLimit;
     player.rightLimit = rightLimit;
     player.speed = 100.0f;
-    player.movementSpeed = 10.0f;
+    player.maxMovementSpeed = 300.0f;
+    player.isMoving = false;
 
     return player;
 }
 
 void UpdatePlayer(Player *player, float delta)
 {
-
-#ifdef IS_ANDROID
+   #ifdef IS_ANDROID
     if (GetTouchPointCount() > 0) 
     {
-        if (player->startMovingPoint.x < 0)
+        Vector2 currentTouch = GetTouchPosition(0);
+
+        if (!player->isMoving)
         {
-            player->startMovingPoint.x = (float)GetTouchX();
-            player->startMovingPoint.y = (float)GetTouchY();
+            // First frame of touch: just sync the positions
+            player->isMoving = true;
+            player->currentMovingPoint = currentTouch;
         }
         else
         {
-            player->currentMovingPoint.x = (float)GetTouchX();
-            player->currentMovingPoint.y = (float)GetTouchY();
+            // Calculate how far the finger moved since the last frame
+            Vector2 touchDelta = Vector2Subtract(currentTouch, player->currentMovingPoint);
+
+            // Apply that exact delta to the ship's position
+            player->position = Vector2Add(player->position, touchDelta);
+
+            // Store the current touch for the next frame's calculation
+            player->currentMovingPoint = currentTouch;
         }
     } 
-#else
-    if(IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_UP) || IsKeyDown(KEY_DOWN))
+    else 
     {
-        player->startMovingPoint = Vector2Zero();
-        player->currentMovingPoint = Vector2Zero();
+        player->isMoving = false;
+    }
+#else
+    // Keyboard logic remains velocity-based
+    Vector2 direction = { 0, 0 };
+    if (IsKeyDown(KEY_LEFT))  direction.x -= 1.0f;
+    if (IsKeyDown(KEY_RIGHT)) direction.x += 1.0f;
+    if (IsKeyDown(KEY_UP))    direction.y -= 1.0f;
+    if (IsKeyDown(KEY_DOWN))  direction.y += 1.0f;
 
-        if(IsKeyDown(KEY_LEFT))
-        {
-            player->currentMovingPoint.x = -1;
-        }
-        if(IsKeyDown(KEY_RIGHT))
-        {
-            player->currentMovingPoint.x = 1;
-        }
-        if(IsKeyDown(KEY_UP))
-        {
-            player->currentMovingPoint.y = -1;
-        }
-        if(IsKeyDown(KEY_DOWN))
-        {
-            player->currentMovingPoint.y = 1;
-        }
+    if (Vector2Length(direction) > 0) 
+    {
+        direction = Vector2Normalize(direction);
+        Vector2 velocity = Vector2Scale(direction, player->maxMovementSpeed * delta);
+        player->position = Vector2Add(player->position, velocity);
     }
 #endif
-    else
-    {
-        player->startMovingPoint = (Vector2){-1, -1};
-        player->currentMovingPoint = (Vector2){-1, -1};
-    }
-    if (player->position.x < player->leftLimit)
-    {
-        player->position.x = player->leftLimit;
-    }
-    else if (player->position.x > player->rightLimit)
-    {
-        player->position.x = player->rightLimit;
-    }
 
-    if (player->position.y < 0.0f)
-    {
-        player->position.y = 0.0f;
-    }
-    else if (player->position.y > (float)GetScreenHeight())
-    {
-        player->position.y = (float)GetScreenHeight();
-    }
-    Vector2 direction = Vector2Normalize(
-            Vector2Subtract(player->currentMovingPoint, player->startMovingPoint));
-
-    player->position = Vector2Add(player->position, Vector2Scale(direction, player->movementSpeed));
+    // Always clamp at the end to keep the ship on screen
+    player->position.x = Clamp(player->position.x, player->leftLimit, player->rightLimit);
+    player->position.y = Clamp(player->position.y, 0.0f, (float)GetScreenHeight());
 
     player->playerGunCD -= delta;
     player->playerSecondaryGunCD -= delta;
@@ -168,6 +153,7 @@ void DrawPlayer(Player player, float scaleRatio)
         }, 
         .0f, 
         WHITE );
+    // DrawText(TextFormat("Speed: %3.3f",player.currentMovementSpeed), 10, 30, 20, WHITE);
 }
 
 void DestroyPlayer(Player player)

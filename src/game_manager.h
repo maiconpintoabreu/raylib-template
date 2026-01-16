@@ -34,6 +34,13 @@ typedef struct Asteroid{
 //    float rotationSpeed;
 } Asteroid;
 
+typedef struct Star {
+    Vector2 position;
+    float size;
+    float speed;
+    bool IsOnScreen;
+} Star;
+
 typedef struct Entity{
     EntityType type;
     bool isAlive;
@@ -47,8 +54,8 @@ typedef struct Entity{
 //----------------------------------------------------------------------------------
 // Global Variables Definition
 //----------------------------------------------------------------------------------
-int screenWidth = 0;
-int screenHeight = 0;
+int screenWidth = 450;
+int screenHeight = 1000;
 float scaleRatio = 1.0f;
 float mapSize = 10000.0f;
 float currentWorldOffset = 0.0f;
@@ -60,6 +67,7 @@ int currentScore = 0;
 int currentLevel = 1;
 
 Entity entities[MAX_ENTITIES] = {0};
+Star stars[STARS_AMOUNT] = {0};
 
 // GUN
 float delta = 0.0f;
@@ -69,11 +77,7 @@ LevelData* levelDataLoaded = NULL;
 
 // TODO: Move it somewhere else
 Shader trailShader = {0};
-Shader starShader = {0};
 Texture2D tailTexture = {0};
-Texture2D starfieldTexture = {0};
-
-int secondsLoc = 0;
 
 bool CreateGameManager(void)
 {
@@ -82,7 +86,6 @@ bool CreateGameManager(void)
     //--------------------------------------------------------------------------------------
 
     InitWindow(screenWidth, screenHeight, "Raylib Template");
-
 
     virtualLeftBorder = 0.0f;
     virtualRightBorder = (float)GetScreenWidth();
@@ -100,14 +103,7 @@ bool CreateGameManager(void)
     Image trailImage = GenImageColor((int)(10*scaleRatio), (int)(100*scaleRatio), BLACK);
     tailTexture = LoadTextureFromImage(trailImage);
     UnloadImage(trailImage);
-    Image starfieldImage = GenImageColor(GetScreenWidth(), GetScreenHeight(), BLACK);
-    starfieldTexture = LoadTextureFromImage(starfieldImage);
-    UnloadImage(starfieldImage);
     trailShader = LoadShader(TextFormat("resources/shaders-%s/base.vs",GLSL_VERSION), TextFormat("resources/shaders-%s/trail.fs",GLSL_VERSION));
-    starShader = LoadShader(TextFormat("resources/shaders-%s/base.vs",GLSL_VERSION), TextFormat("resources/shaders-%s/starfield.fs",GLSL_VERSION));
-    // Get the uniform locations
-    secondsLoc = GetShaderLocation(starShader, "seconds");
-    DisableCursor(); // Lock mouse to window center
 
     // Initialize Player
     Player player = CreatePlayer(virtualLeftBorder, virtualRightBorder);
@@ -121,6 +117,16 @@ bool CreateGameManager(void)
     // float physicDelta = 0.0f;
     gameOver = false;
     levelDataLoaded = LoadResources();
+
+    for (int i = 0; i < STARS_AMOUNT; i++) {
+        stars[i].position = (Vector2){ 
+            (float)GetRandomValue(0, GetScreenWidth()), 
+            (float)GetRandomValue(0, GetScreenHeight()) 
+        };
+        stars[i].size = (float)GetRandomValue(1, 3);
+        stars[i].speed = (float)GetRandomValue(10, 50) / 10.0f; // Optional for movement
+        stars[i].IsOnScreen = true;
+    }
 
     return true;
 }
@@ -152,12 +158,24 @@ bool UpdateDrawFrame(void)
         // physicDelta += delta;
         currentWorldOffset += entities[0].player.speed*delta;
         // TraceLog(LOG_INFO, "World Offset: %3.3f", currentWorldOffset);
-        float speedReduced = -1*currentWorldOffset/ 1000;
-        SetShaderValue(starShader, secondsLoc, &speedReduced, SHADER_UNIFORM_FLOAT);
         if (mapSize < currentWorldOffset)
         {
             gameOver = true;
             return false;
+        }
+
+        for (int i = 0; i < STARS_AMOUNT; i++) {
+            stars[i].position.y += stars[i].speed*entities[0].player.speed*delta;
+            if (stars[i].position.y >= (float)GetScreenHeight())
+            {
+                stars[i].position = (Vector2){ 
+                    (float)GetRandomValue(0, GetScreenWidth()), 
+                    0.0f 
+                };
+                stars[i].size = (float)GetRandomValue(1, 3);
+                stars[i].speed = (float)GetRandomValue(10, 50)*0.1f; // Optional for movement
+                stars[i].IsOnScreen = true;
+            }
         }
 
         for (int i = 0; i < MAX_LEVEL_DATA; i++)
@@ -189,10 +207,10 @@ bool UpdateDrawFrame(void)
                 switch (levelDataLoaded[i].entityType) {
                     case ASTEROID:
                         asteroidX = (float)GetScreenWidth()*0.5f;
-                        asteroidX += asteroidX*levelDataLoaded[i].whereToSpawnX;
+                        asteroidX += asteroidX*levelDataLoaded[i].whereToSpawnX*scaleRatio;
                         positionToSpawn = (Vector2){
-                            asteroidX, 
-                            levelDataLoaded[i].whereToSpawnY - currentWorldOffset
+                            asteroidX,
+                            levelDataLoaded[i].whereToSpawnY*scaleRatio - currentWorldOffset
                         };
                         asteroid = (Asteroid){
                             positionToSpawn, 
@@ -359,13 +377,13 @@ bool UpdateDrawFrame(void)
     //----------------------------------------------------------------------------------
     BeginDrawing();
 
-    ClearBackground(DARKGRAY);
+    ClearBackground(BLACK);
     if (!gameOver)
     {
-        BeginShaderMode(starShader);
-            // Draw a rectangle covering the whole screen to apply the shader
-            DrawTextureV(starfieldTexture, Vector2Zero(), WHITE);
-        EndShaderMode();
+        for (int i = 0; i < STARS_AMOUNT; i++)
+        {
+            if (stars[i].IsOnScreen) DrawCircleV(stars[i].position, stars[i].size*scaleRatio, Fade(RAYWHITE, 0.5f));
+        }
         for (int i = 0; i < MAX_ENTITIES; i++) 
         {
             if (entities[i].isAlive)
@@ -422,9 +440,7 @@ void DestroyGameManager(void)
 {
     DestroyPlayer(entities[0].player);
 
-    UnloadShader(starShader);
     UnloadShader(trailShader);
     UnloadTexture(tailTexture);
-    UnloadTexture(starfieldTexture);
 }
 #endif //GAMEMANAGER_H

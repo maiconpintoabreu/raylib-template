@@ -15,7 +15,6 @@ typedef struct Asteroid{
     Vector2 acceleration; 
     Texture2D texture;
     Rectangle sourceRec;
-    float size;
     float rotationSpeed;
     float rotation;
 } Asteroid;
@@ -25,7 +24,6 @@ Asteroid CreateAsteroid(Texture2D preLoadedTexture)
     Asteroid asteroid = {0};
 
     asteroid.texture = preLoadedTexture;
-    asteroid.size = 20.0f;
     asteroid.sourceRec = (Rectangle){.0f, .0f, (float)asteroid.texture.width, (float)asteroid.texture.height};
     asteroid.rotation = (float)GetRandomValue(-180, 180);
     return asteroid;

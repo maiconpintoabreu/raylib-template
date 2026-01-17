@@ -7,4 +7,12 @@ typedef enum EntityType{
     BULLET
 } EntityType;
 
+typedef enum GameState{
+    MAIN_MENU,
+    IN_GAME,
+    GAME_OVER,
+    PAUSE,
+    QUIT
+} GameState;
+
 #endif // ENUMS_H

@@ -1,6 +1,7 @@
 #ifndef IN_GAME_H
 #define IN_GAME_H
 
+#include <stdbool.h>
 #ifdef IS_ANDROID
 #include "raymob.h"
 #else
@@ -30,6 +31,7 @@ typedef struct Bullet{
     Vector2 position;       // Bullet position on screen
     Vector2 acceleration;
     bool isPlayer;
+    int damage;
 } Bullet;
 
 typedef struct Entity{
@@ -45,7 +47,7 @@ typedef struct Entity{
 Entity entities[MAX_ENTITIES] = {0};
 Star stars[STARS_AMOUNT] = {0};
 
-float mapSize = 10000.0f;
+float mapSize = 1000.0f;
 float currentWorldOffset = 0.0f;
 
 // TODO: Move it somewhere else
@@ -61,6 +63,20 @@ int currentScore = 0;
 void SetLevel(int level)
 {
     currentLevel = level;
+}
+
+void RestartInGame()
+{
+    RestartPlayer(&entities[0].player);
+    for (int i=1; i<MAX_ENTITIES; i++)
+    {
+        entities[i].isAlive = false;
+    }
+    for (int i=0; i<MAX_LEVEL_DATA; i++)
+    {
+        levelDataLoaded[i].isSpawned = false;
+    }
+    currentWorldOffset = 0.0f;
 }
 
 bool CreateInGame(float scaleRatio, float virtualLeftBorder, float virtualRightBorder)
@@ -158,7 +174,8 @@ GameState UpdateInGame(GameState gameState, float scaleRatio, float delta)
                     asteroid.positionOffset = (Vector2){positionToSpawn.x, positionToSpawn.y + currentWorldOffset};
                     asteroid.acceleration = (Vector2){0, 0};
                     asteroid.rotationSpeed = (float)GetRandomValue(-1, 1)/2;
-                    
+                    asteroid.health = levelDataLoaded[i].health;
+
                     entities[indexToUse].isAlive = true;
                     entities[indexToUse].type = ASTEROID;
                     entities[indexToUse].asteroid = asteroid;
@@ -221,6 +238,7 @@ GameState UpdateInGame(GameState gameState, float scaleRatio, float delta)
                 entities[i].bullet.isPlayer = true;
                 entities[i].bullet.position = entities[0].player.position;
                 entities[i].bullet.acceleration = (Vector2){0, -BULLET_SPEED};
+                entities[i].bullet.damage = 1;
                 break;
             }
         }
@@ -249,6 +267,7 @@ GameState UpdateInGame(GameState gameState, float scaleRatio, float delta)
                     entities[i].bullet.position.x += 10*scaleRatio;
                 }
                 entities[i].bullet.acceleration = (Vector2){0, -BULLET_SPEED*0.8f};
+                entities[i].bullet.damage = 1;
                 secondaryGunBulletCount += 1;
                 if(secondaryGunBulletCount >= 2)
                 {
@@ -290,8 +309,12 @@ GameState UpdateInGame(GameState gameState, float scaleRatio, float delta)
                                     entities[j].asteroid.positionOffset, entities[j].asteroid.size*scaleRatio)) 
                                 {
                                     entities[i].isAlive = false;
-                                    entities[j].isAlive = false;
-                                    currentScore += 2;
+                                    entities[j].asteroid.health -= entities[i].bullet.damage;
+                                    if (entities[j].asteroid.health <= 0)
+                                    {
+                                        entities[j].isAlive = false;
+                                        currentScore += 2;
+                                    }
                                 }
                             } 
                             else if (!entities[i].bullet.isPlayer && entities[j].type == PLAYER)

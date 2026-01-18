@@ -17,6 +17,7 @@ typedef struct Asteroid{
     Rectangle sourceRec;
     float rotationSpeed;
     float rotation;
+    int health;
     int size;
 } Asteroid;
 

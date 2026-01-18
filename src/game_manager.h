@@ -33,11 +33,13 @@ float virtualRightBorder = 0.0f;
 float delta = 0.0f;
 
 //  Menu
-bool skipInput = false;
+Rectangle exitMenuRec = {0};
+Rectangle startMenuRec = {0};
+Rectangle restartMenuRec = {0};
+Rectangle pauseMenuRec = {0};
 
-static Rectangle exitMenuRec = {0};
-static Rectangle startMenuRec = {0};
-static Rectangle restartMenuRec = {0};
+Texture2D pauseTexture = {0};
+
 
 void OnPause(void)
 {
@@ -51,16 +53,25 @@ void OnResume(void)
     isGameOnScreen = true;
     TraceLog(LOG_INFO, "OnResume");
 }
-
-int MenuButtom(Rectangle buttom, const char *buttom_text) {
-    if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && CheckCollisionPointRec(GetMousePosition(), buttom))
+int MenuButtonWithTexture(Rectangle button, Texture2D texture) {
+    if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && CheckCollisionPointRec(GetMousePosition(), button))
     {
-        skipInput = true;
         return true;
     }
-    DrawRectangleRec(buttom, GRAY);
 
-    DrawText(buttom_text, buttom.x + 20, buttom.y + buttom.height / 2 - 10, 20, WHITE);
+    DrawTextureV(texture, (Vector2){button.x, button.y}, WHITE);
+    return 0;
+}
+
+int MenuButton(Rectangle button, const char *button_text) {
+    if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && CheckCollisionPointRec(GetMousePosition(), button))
+    {
+        return true;
+    }
+    DrawRectangleRounded(button,5, 4, BLACK);
+    DrawRectangleRoundedLines(button,5, 4, GRAY);
+
+    DrawText(button_text, (int)button.x + 20, (int)button.y + (int)button.height / 2 - 10, 20, WHITE);
     return 0;
 }
 
@@ -77,6 +88,12 @@ void PlaceUIButtons(){
     exitMenuRec.y = ((float)GetScreenHeight() / 2) + ITEM_MENU_SIZE_HEIGHT / 1.5f;
     exitMenuRec.width = MENU_SIZE_WIDTH;
     exitMenuRec.height = ITEM_MENU_SIZE_HEIGHT;
+    // Add pause button
+    pauseMenuRec.x = (float)GetScreenWidth() - 40.0f;
+    pauseMenuRec.y = (float)GetScreenHeight() - 40.0f;
+    // TODO: remove magic numbers later
+    pauseMenuRec.width = 32;
+    pauseMenuRec.height = 32;
 }
 
 bool CreateGameManager(void)
@@ -104,9 +121,14 @@ bool CreateGameManager(void)
     }
     CreateInGame(scaleRatio, virtualLeftBorder, virtualRightBorder);
     PlaceUIButtons();
+    Image pauseImage = GenImageColor(16, 16, BLANK);
+    ImageDrawRectangleV(&pauseImage, (Vector2){4,0}, (Vector2){2,16}, WHITE);
+    ImageDrawRectangleV(&pauseImage, (Vector2){10,0}, (Vector2){2,16}, WHITE);
+    ImageResize(&pauseImage, 32, 32);
+    pauseTexture = LoadTextureFromImage(pauseImage);
+    UnloadImage(pauseImage);
     isGameOnScreen = true;
     previousFrameIsGameOnScreen = false;
-    // gameState = IN_GAME; // FOR TESTING
 
     return true;
 }
@@ -150,18 +172,18 @@ bool UpdateDrawFrame(void)
     {
         case MAIN_MENU:
             BeginDrawing();
-                ClearBackground(BLACK);   
-                
-                if (MenuButtom(startMenuRec, "Start Game"))
+                ClearBackground(BLACK);
+
+                if (MenuButton(startMenuRec, "Start Game"))
                 {
                     // Initialize game
                     gameState = IN_GAME;
                 }
-                if (MenuButtom(exitMenuRec, "Exit Game")){
+                if (MenuButton(exitMenuRec, "Exit Game")){
                     // Exit game
                     gameState = QUIT;
                     return false;
-                }                 
+                }
                 DrawFPS(10, 10);
             EndDrawing();
             break;
@@ -175,6 +197,10 @@ bool UpdateDrawFrame(void)
                     DrawInGame(gameState, scaleRatio);
                     DrawRectangleRec((Rectangle){0, 0, virtualLeftBorder, (float)GetScreenHeight()}, BLACK);
                     DrawRectangleRec((Rectangle){virtualRightBorder, 0, (float)GetScreenWidth(), (float)GetScreenHeight()}, BLACK);
+                    if (MenuButtonWithTexture(pauseMenuRec, pauseTexture))
+                    {
+                        gameState = PAUSE;
+                    }
                     DrawFPS(10, 10);
                 EndDrawing();
             }
@@ -187,33 +213,33 @@ bool UpdateDrawFrame(void)
             UpdateInGame(gameState, scaleRatio, delta);
 
             BeginDrawing();
-                ClearBackground(BLACK);  
+                ClearBackground(BLACK);
                 const Rectangle tempPauseRec = (Rectangle){restartMenuRec.x, restartMenuRec.y-restartMenuRec.height-15, restartMenuRec.width, restartMenuRec.height};
-                if (MenuButtom(tempPauseRec, "Continue Game"))
+                if (MenuButton(tempPauseRec, "Continue Game"))
                 {
                     gameState = IN_GAME;
                 }
-                if (MenuButtom(restartMenuRec, "Restart Game"))
+                if (MenuButton(restartMenuRec, "Restart Game"))
                 {
-                    // ResetGame(); // TODO: need to be implemented
+                    RestartInGame();
                     gameState = IN_GAME;
                 }
-                if (MenuButtom(exitMenuRec, "Exit Game"))
+                if (MenuButton(exitMenuRec, "Exit Game"))
                 {
                     gameState = QUIT;
-                }                 
+                }
                 DrawFPS(10, 10);
             EndDrawing();
             break;
         case GAME_OVER:
             BeginDrawing();
                 ClearBackground(BLACK);
-                if (MenuButtom(restartMenuRec, "Restart Game"))
+                if (MenuButton(restartMenuRec, "Restart Game"))
                 {
                     // ResetGame(); // TODO: need to be implemented
                     gameState = IN_GAME;
                 }
-                if (MenuButtom(exitMenuRec, "Exit Game"))
+                if (MenuButton(exitMenuRec, "Exit Game"))
                 {
                     gameState = QUIT;
                 }           
@@ -231,5 +257,6 @@ bool UpdateDrawFrame(void)
 void DestroyGameManager(void)
 {
     DestroyInGame();
+    UnloadTexture(pauseTexture);
 }
 #endif //GAMEMANAGER_H

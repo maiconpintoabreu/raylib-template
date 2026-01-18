@@ -29,6 +29,12 @@ typedef struct Player{
     bool isMoving;
 } Player;
 
+void RestartPlayer(Player *player)
+{
+    player->position.x = (float)GetScreenWidth() * 0.5f;
+    player->position.y = (float)GetScreenHeight() * .8f;
+}
+
 Player CreatePlayer(float leftLimit, float rightLimit)
 {
     Player player = {0};

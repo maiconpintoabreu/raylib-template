@@ -29,13 +29,10 @@ int main()
 {
     CreateGameManager();
 
-    //--------------------------------------------------------------------------------------
-
 #if defined(PLATFORM_WEB)
     emscripten_set_main_loop(UpdateWebFrame, 0, 1);
 #else
     SetTargetFPS(60);   // Set our game to run at 60 frames-per-second
-    //--------------------------------------------------------------------------------------
 
     // Main game loop
     while (!WindowShouldClose() && UpdateDrawFrame()) {}
@@ -46,7 +43,7 @@ int main()
     DestroyGameManager();
     CloseWindow();
 #ifdef IS_ANDROID
-    exit(0);
+   exit(0);
 #endif
     //--------------------------------------------------------------------------------------
 

@@ -25,6 +25,7 @@ typedef struct Player{
     float currentMovementSpeed;
     float leftLimit;
     float rightLimit;
+    int size;
     bool isMoving;
 } Player;
 
@@ -79,6 +80,7 @@ Player CreatePlayer(float leftLimit, float rightLimit)
     player.speed = 100.0f;
     player.maxMovementSpeed = 300.0f;
     player.isMoving = false;
+    player.size = 20;
 
     return player;
 }

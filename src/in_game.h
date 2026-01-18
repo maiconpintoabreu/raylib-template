@@ -272,8 +272,8 @@ GameState UpdateInGame(GameState gameState, float scaleRatio, float delta)
                             if (entities[j].type == PLAYER)
                             {
                                 if (CheckCollisionCircles(
-                                    entities[j].player.position, 20*scaleRatio, 
-                                    entities[i].asteroid.positionOffset, 20*scaleRatio)) 
+                                    entities[j].player.position, entities[j].player.size*scaleRatio, 
+                                    entities[i].asteroid.positionOffset, entities[j].asteroid.size*scaleRatio)) 
                                 {
                                     entities[i].isAlive = false;
                                     gameState = GAME_OVER;
@@ -286,8 +286,8 @@ GameState UpdateInGame(GameState gameState, float scaleRatio, float delta)
                             if (entities[i].bullet.isPlayer && entities[j].type == ASTEROID)
                             {
                                 if (CheckCollisionCircles(
-                                    entities[i].bullet.position, 5*scaleRatio, 
-                                    entities[j].asteroid.positionOffset, 20*scaleRatio)) 
+                                    entities[i].bullet.position, BULLET_SIZE*scaleRatio, 
+                                    entities[j].asteroid.positionOffset, entities[j].asteroid.size*scaleRatio)) 
                                 {
                                     entities[i].isAlive = false;
                                     entities[j].isAlive = false;
@@ -297,8 +297,8 @@ GameState UpdateInGame(GameState gameState, float scaleRatio, float delta)
                             else if (!entities[i].bullet.isPlayer && entities[j].type == PLAYER)
                             {
                                 if (CheckCollisionCircles(
-                                    entities[i].bullet.position, 5*scaleRatio, 
-                                    entities[j].player.position, 20*scaleRatio)) 
+                                    entities[i].bullet.position, BULLET_SIZE*scaleRatio, 
+                                    entities[j].player.position, entities[j].player.size*scaleRatio)) 
                                 {
                                     entities[i].isAlive = false;
                                     gameState = GAME_OVER;

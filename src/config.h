@@ -3,7 +3,11 @@
 
 #define MAX_ENTITIES  1000
 #define MAX_LEVEL_DATA  100
+
 #define BULLET_SPEED 1000
+#define BULLET_SIZE 20
 #define STARS_AMOUNT 50
+#define MENU_SIZE_WIDTH 200.0f
+#define ITEM_MENU_SIZE_HEIGHT 50.0f
 
 #endif // CONFIG_H

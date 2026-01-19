@@ -9,7 +9,7 @@
 
 #include "raymath.h"
 
-typedef struct Player{
+typedef struct Player {
     Vector2 startMovingPoint;
     Vector2 currentMovingPoint;
     Vector2 position;
@@ -86,7 +86,7 @@ Player CreatePlayer(float leftLimit, float rightLimit)
     player.speed = 100.0f;
     player.maxMovementSpeed = 300.0f;
     player.isMoving = false;
-    player.size = 20;
+    player.size = 40;
 
     return player;
 }

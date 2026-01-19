@@ -38,6 +38,11 @@ Rectangle startMenuRec = {0};
 Rectangle restartMenuRec = {0};
 Rectangle pauseMenuRec = {0};
 
+// TODO: Remove it later
+Rectangle debugPowerUpRec = {0};
+Texture2D debugPowerUpTexture = {0};
+// Until here
+
 Texture2D pauseTexture = {0};
 
 Level levels[MAX_LEVEL_AMOUNT] = {0};
@@ -95,6 +100,13 @@ void PlaceUIButtons(){
     // TODO: remove magic numbers later
     pauseMenuRec.width = 32;
     pauseMenuRec.height = 32;
+
+    // TODO: Remove it later
+
+    debugPowerUpRec.x = (float)GetScreenWidth() - 40.0f;
+    debugPowerUpRec.y = (float)GetScreenHeight() - 80.0f;
+    debugPowerUpRec.width = 32;
+    debugPowerUpRec.height = 32;
 }
 
 void CreateLevels(void)
@@ -141,6 +153,15 @@ bool CreateGameManager(void)
     ImageResize(&pauseImage, 32, 32);
     pauseTexture = LoadTextureFromImage(pauseImage);
     UnloadImage(pauseImage);
+
+    //TODO: Remove it later
+    Image debugPowerUpImage = GenImageColor(16, 16, BLANK);
+    ImageDrawRectangleV(&debugPowerUpImage, (Vector2){6,3}, (Vector2){4,10}, WHITE);
+    ImageDrawRectangleV(&debugPowerUpImage, (Vector2){3,6}, (Vector2){10,4}, WHITE);
+    ImageResize(&debugPowerUpImage, 32, 32);
+    debugPowerUpTexture = LoadTextureFromImage(debugPowerUpImage);
+    UnloadImage(debugPowerUpImage);
+    //Until here
     isGameOnScreen = true;
     previousFrameIsGameOnScreen = false;
 
@@ -220,7 +241,12 @@ bool UpdateDrawFrame(void)
                     {
                         gameState = PAUSE;
                     }
+                    if (MenuButtonWithTexture(debugPowerUpRec, debugPowerUpTexture))
+                    {
+                        entities[0].player.playerGunCDDefault -= 0.1f;
+                    }
                     DrawFPS(10, 10);
+                    TraceLog(LOG_INFO, "Frame Time: %3.8f", GetFrameTime());
                 EndDrawing();
             }
             else
@@ -255,7 +281,7 @@ bool UpdateDrawFrame(void)
                 ClearBackground(BLACK);
                 if (MenuButton(restartMenuRec, "Restart Game"))
                 {
-                    // ResetGame(); // TODO: need to be implemented
+                    RestartInGame();
                     gameState = IN_GAME;
                 }
                 if (MenuButton(exitMenuRec, "Exit Game"))
@@ -277,5 +303,6 @@ void DestroyGameManager(void)
 {
     DestroyInGame();
     UnloadTexture(pauseTexture);
+    UnloadTexture(debugPowerUpTexture);
 }
 #endif //GAMEMANAGER_H

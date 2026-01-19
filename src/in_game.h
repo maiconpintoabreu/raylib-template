@@ -177,8 +177,7 @@ GameState UpdateInGame(GameState gameState, float scaleRatio, float delta)
             float enemyX = 0.0f;
             switch (levelDataLoaded[i].entityType) {
                 case ASTEROID:
-                    enemyX = (float)GetScreenWidth()*0.5f;
-                    enemyX += enemyX*levelDataLoaded[i].whereToSpawnX*scaleRatio;
+                    enemyX = levelDataLoaded[i].whereToSpawnX;
                     positionToSpawn = (Vector2){
                         enemyX,
                         levelDataLoaded[i].whereToSpawnY*scaleRatio - currentWorldOffset
@@ -339,18 +338,34 @@ GameState UpdateInGame(GameState gameState, float scaleRatio, float delta)
                                 {
                                     entities[i].isAlive = false;
                                     entities[j].enemy.health -= entities[i].bullet.damage;
+                                    
                                     int howManyParticles = 5;
+                                    int startAccelerationY = 200;
+                                    int spreadX = 50;
+                                    Vector2 particlesPosition = entities[i].bullet.position;
+
+                                    // Spawn Particles
+                                    if (entities[j].enemy.health <= 0)
+                                    {
+                                        entities[j].isAlive = false;
+                                        currentScore += 2;
+                                        startAccelerationY = -350;
+                                        spreadX = 200;
+                                        howManyParticles = 15;
+                                        particlesPosition = entities[j].enemy.positionOffset;
+                                    }
+
                                     for (int n = 0;n < MAX_PARTICLES; n++)
                                     {
                                         if (!particles[n].isAlive)
                                         {
                                             particles[n].isAlive = true;
                                             particles[n].maxLifeTime = 0.5f;
-                                            particles[n].position = entities[i].bullet.position;
-                                            particles[n].size = 5*scaleRatio;
+                                            particles[n].position = particlesPosition;
+                                            particles[n].size = 3*scaleRatio;
                                             particles[n].lifeTime = particles[n].maxLifeTime;
-                                            particles[n].acceleration.x = (float)GetRandomValue(-100, 100) ;
-                                            particles[n].acceleration.y = (float)GetRandomValue(200, 320);
+                                            particles[n].acceleration.x = (float)GetRandomValue(-spreadX, spreadX) ;
+                                            particles[n].acceleration.y = (float)GetRandomValue(startAccelerationY, 320);
                                             particles[n].color = BROWN;
                                             howManyParticles -= 1;
                                             if (howManyParticles <= 0)
@@ -358,11 +373,6 @@ GameState UpdateInGame(GameState gameState, float scaleRatio, float delta)
                                                 break;
                                             }
                                         }
-                                    }
-                                    if (entities[j].enemy.health <= 0)
-                                    {
-                                        entities[j].isAlive = false;
-                                        currentScore += 2;
                                     }
                                 }
                             } 

@@ -22,7 +22,7 @@ jobs:
     env:
       PROJECT_NAME: raylib-template
       PROJECT_BUILD_PATH: build
-      PROJECT_RELEASE_PATH: ${{ github.event.repository.name }}_web
+      PROJECT_RELEASE_PATH: ${{ github.event.repository.name }}_windows
       PROJECT_CUSTOM_FLAGS: ""
       PROJECT_RESOURCES_PATH: resources
 

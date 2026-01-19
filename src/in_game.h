@@ -15,7 +15,7 @@
 #endif
 
 #include "player.h"
-#include "asteroid.h"
+#include "enemy.h"
 #include "enums.h"
 #include "config.h"
 #include "resource_loader.h"
@@ -36,6 +36,16 @@ typedef struct Star {
     bool IsOnScreen;
 } Star;
 
+typedef struct Particles {
+    Vector2 position;
+    Vector2 acceleration;
+    Color color;
+    float size;
+    float maxLifeTime;
+    float lifeTime;
+    bool isAlive;
+} Particles;
+
 typedef struct Bullet{
     Vector2 position;       // Bullet position on screen
     Vector2 acceleration;
@@ -48,13 +58,14 @@ typedef struct Entity{
     bool isAlive;
     union {
         Player player;
-        Asteroid asteroid;
+        Enemy enemy;
         Bullet bullet;
     };
 } Entity;
 
 Entity entities[MAX_ENTITIES] = {0};
 Star stars[STARS_AMOUNT] = {0};
+Particles particles[MAX_PARTICLES] = {0};
 
 Level currentLevel = {0};
 float currentWorldOffset = 0.0f;
@@ -162,26 +173,26 @@ GameState UpdateInGame(GameState gameState, float scaleRatio, float delta)
                 return false;
             }
             Vector2 positionToSpawn = {0};
-            Asteroid asteroid = {0};
-            float asteroidX = 0.0f;
+            Enemy enemy = {0};
+            float enemyX = 0.0f;
             switch (levelDataLoaded[i].entityType) {
                 case ASTEROID:
-                    asteroidX = (float)GetScreenWidth()*0.5f;
-                    asteroidX += asteroidX*levelDataLoaded[i].whereToSpawnX*scaleRatio;
+                    enemyX = (float)GetScreenWidth()*0.5f;
+                    enemyX += enemyX*levelDataLoaded[i].whereToSpawnX*scaleRatio;
                     positionToSpawn = (Vector2){
-                        asteroidX,
+                        enemyX,
                         levelDataLoaded[i].whereToSpawnY*scaleRatio - currentWorldOffset
                     };
-                    asteroid = CreateAsteroid(asteroidTexture);
-                    asteroid.position = positionToSpawn; 
-                    asteroid.positionOffset = (Vector2){positionToSpawn.x, positionToSpawn.y + currentWorldOffset};
-                    asteroid.acceleration = (Vector2){0, 0};
-                    asteroid.rotationSpeed = (float)GetRandomValue(-1, 1) * 2; // TODO: this value should be fixed
-                    asteroid.health = levelDataLoaded[i].health * (currentLevel.difficult / levelDataLoaded[i].health);
+                    enemy = CreateEnemy(asteroidTexture);
+                    enemy.position = positionToSpawn; 
+                    enemy.positionOffset = (Vector2){positionToSpawn.x, positionToSpawn.y + currentWorldOffset};
+                    enemy.acceleration = (Vector2){0, 0};
+                    enemy.rotationSpeed = (float)GetRandomValue(-1, 1) * 2; // TODO: this value should be fixed
+                    enemy.health = (int)(levelDataLoaded[i].health * ((float)currentLevel.difficult / levelDataLoaded[i].health));
 
                     entities[indexToUse].isAlive = true;
                     entities[indexToUse].type = ASTEROID;
-                    entities[indexToUse].asteroid = asteroid;
+                    entities[indexToUse].enemy = enemy;
                 break;
                 case PLAYER:
                     TraceLog(LOG_ERROR, "Trying to Spawn Player");
@@ -199,15 +210,30 @@ GameState UpdateInGame(GameState gameState, float scaleRatio, float delta)
         }
     }
 
+    for (int i = 0; i < MAX_PARTICLES; i++)
+    {
+        if (particles[i].isAlive)
+        {
+            particles[i].lifeTime -= delta;
+            if (particles[i].lifeTime <=0.0f)
+            {
+                particles[i].isAlive = false;
+                continue;
+            }
+
+            particles[i].position = Vector2Add(particles[i].position, Vector2Scale(particles[i].acceleration, delta));
+        }
+    }
+
     for (int i = 0; i < MAX_ENTITIES; i++) 
     {
         if (entities[i].isAlive)
         {
             switch (entities[i].type) {
                 case ASTEROID: 
-                    UpdateAsteroid(&entities[i].asteroid, currentWorldOffset, delta);
+                    UpdateEnemy(&entities[i].enemy, currentWorldOffset, delta);
 
-                    if (entities[i].asteroid.positionOffset.y >= (float)GetScreenHeight())
+                    if (entities[i].enemy.positionOffset.y >= (float)GetScreenHeight())
                     {
                         entities[i].isAlive = false;
                     }
@@ -294,8 +320,8 @@ GameState UpdateInGame(GameState gameState, float scaleRatio, float delta)
                             if (entities[j].type == PLAYER)
                             {
                                 if (CheckCollisionCircles(
-                                    entities[j].player.position, entities[j].player.size*scaleRatio, 
-                                    entities[i].asteroid.positionOffset, entities[j].asteroid.size*scaleRatio)) 
+                                    entities[j].player.position, (float)entities[j].player.size*scaleRatio,
+                                    entities[i].enemy.positionOffset, (float)entities[j].enemy.size*scaleRatio))
                                 {
                                     entities[i].isAlive = false;
                                     gameState = GAME_OVER;
@@ -309,11 +335,31 @@ GameState UpdateInGame(GameState gameState, float scaleRatio, float delta)
                             {
                                 if (CheckCollisionCircles(
                                     entities[i].bullet.position, BULLET_SIZE*scaleRatio, 
-                                    entities[j].asteroid.positionOffset, entities[j].asteroid.size*scaleRatio)) 
+                                    entities[j].enemy.positionOffset, (float)entities[j].enemy.size*scaleRatio))
                                 {
                                     entities[i].isAlive = false;
-                                    entities[j].asteroid.health -= entities[i].bullet.damage;
-                                    if (entities[j].asteroid.health <= 0)
+                                    entities[j].enemy.health -= entities[i].bullet.damage;
+                                    int howManyParticles = 5;
+                                    for (int n = 0;n < MAX_PARTICLES; n++)
+                                    {
+                                        if (!particles[n].isAlive)
+                                        {
+                                            particles[n].isAlive = true;
+                                            particles[n].maxLifeTime = 0.5f;
+                                            particles[n].position = entities[i].bullet.position;
+                                            particles[n].size = 5*scaleRatio;
+                                            particles[n].lifeTime = particles[n].maxLifeTime;
+                                            particles[n].acceleration.x = (float)GetRandomValue(-100, 100) ;
+                                            particles[n].acceleration.y = (float)GetRandomValue(200, 320);
+                                            particles[n].color = BROWN;
+                                            howManyParticles -= 1;
+                                            if (howManyParticles <= 0)
+                                            {
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    if (entities[j].enemy.health <= 0)
                                     {
                                         entities[j].isAlive = false;
                                         currentScore += 2;
@@ -324,7 +370,7 @@ GameState UpdateInGame(GameState gameState, float scaleRatio, float delta)
                             {
                                 if (CheckCollisionCircles(
                                     entities[i].bullet.position, BULLET_SIZE*scaleRatio, 
-                                    entities[j].player.position, entities[j].player.size*scaleRatio)) 
+                                    entities[j].player.position, (float)entities[j].player.size*scaleRatio))
                                 {
                                     entities[i].isAlive = false;
                                     gameState = GAME_OVER;
@@ -349,13 +395,13 @@ void DrawInGame(GameState gameState, float scaleRatio)
         {
             if (stars[i].IsOnScreen) DrawCircleV(stars[i].position, stars[i].size*scaleRatio, Fade(RAYWHITE, 0.5f));
         }
-        for (int i = 0; i < MAX_ENTITIES; i++) 
+        for (int i = 1; i < MAX_ENTITIES; i++)
         {
             if (entities[i].isAlive)
             {
                 switch (entities[i].type) {
                     case ASTEROID: 
-                        DrawAsteroid(entities[i].asteroid, scaleRatio);
+                        DrawEnemy(entities[i].enemy, scaleRatio);
                         break;
                     case BULLET: 
                         BeginBlendMode(BLEND_ALPHA);
@@ -370,18 +416,22 @@ void DrawInGame(GameState gameState, float scaleRatio)
                 }
             }
         }
-        for (int i = 0; i < MAX_ENTITIES; i++) 
+        if (entities[0].isAlive)
         {
-            if (entities[i].isAlive)
-            {
-                switch (entities[i].type) {
-                    case PLAYER: 
+            switch (entities[0].type) {
+                case PLAYER:
 //                        TraceLog(LOG_INFO, "Drawing Player on: \{%3.3f, %3.3f}", entities[i].player.position.x, entities[i].player.position.y);
-                        DrawPlayer(entities[i].player, scaleRatio);
-                        break;
-                    default:
-                        break;
-                }
+                    DrawPlayer(entities[0].player, scaleRatio);
+                    break;
+                default:
+                    break;
+            }
+        }
+        for (int i = 0; i < MAX_PARTICLES; i++) {
+            if (particles[i].isAlive)
+            {
+                Color particleColor =  Fade(particles[i].color, particles[i].lifeTime / particles[i].maxLifeTime);
+                DrawCircleV(particles[i].position, particles[i].size, particleColor);
             }
         }
         // DrawText(TextFormat("FPS: %i", GetFPS()), virtualLeftBorder + 10*scaleRatio, (int)((float)GetScreenHeight()*.1f), (int)(20.0f*scaleRatio), RED);

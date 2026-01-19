@@ -161,7 +161,6 @@ void DrawPlayer(Player player, float scaleRatio)
         }, 
         .0f, 
         WHITE );
-    // DrawText(TextFormat("Speed: %3.3f",player.currentMovementSpeed), 10, 30, 20, WHITE);
 }
 
 void DestroyPlayer(Player player)

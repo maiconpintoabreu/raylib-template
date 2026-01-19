@@ -20,6 +20,15 @@
 #include "config.h"
 #include "resource_loader.h"
 
+typedef struct Level {
+    char *name;
+    int id;
+    int difficult;
+    int targetAmount;
+    int scoreAmount;
+    float size;
+} Level;
+
 typedef struct Star {
     Vector2 position;
     float size;
@@ -47,7 +56,7 @@ typedef struct Entity{
 Entity entities[MAX_ENTITIES] = {0};
 Star stars[STARS_AMOUNT] = {0};
 
-float mapSize = 1000.0f;
+Level currentLevel = {0};
 float currentWorldOffset = 0.0f;
 
 // TODO: Move it somewhere else
@@ -57,13 +66,7 @@ Texture2D asteroidTexture = {0};
 
 LevelData* levelDataLoaded = NULL;
 
-int currentLevel = 1;
 int currentScore = 0;
-
-void SetLevel(int level)
-{
-    currentLevel = level;
-}
 
 void RestartInGame()
 {
@@ -79,8 +82,9 @@ void RestartInGame()
     currentWorldOffset = 0.0f;
 }
 
-bool CreateInGame(float scaleRatio, float virtualLeftBorder, float virtualRightBorder)
+bool CreateInGame(Level level, float scaleRatio, float virtualLeftBorder, float virtualRightBorder)
 {
+    currentLevel = level;
     Image trailImage = GenImageColor((int)(10*scaleRatio), (int)(100*scaleRatio), BLACK);
     tailTexture = LoadTextureFromImage(trailImage);
     UnloadImage(trailImage);
@@ -106,7 +110,6 @@ bool CreateInGame(float scaleRatio, float virtualLeftBorder, float virtualRightB
         stars[i].speed = (float)GetRandomValue(10, 50) / 10.0f; // Optional for movement
         stars[i].IsOnScreen = true;
     }
-    SetLevel(1);
     return true;
 }
 
@@ -115,8 +118,7 @@ GameState UpdateInGame(GameState gameState, float scaleRatio, float delta)
 
     // physicDelta += delta;
     currentWorldOffset += entities[0].player.speed*delta;
-    // TraceLog(LOG_INFO, "World Offset: %3.3f", currentWorldOffset);
-    if (mapSize < currentWorldOffset)
+    if (currentLevel.size < currentWorldOffset)
     {
         return MAIN_MENU;
     }
@@ -137,7 +139,8 @@ GameState UpdateInGame(GameState gameState, float scaleRatio, float delta)
 
     for (int i = 0; i < MAX_LEVEL_DATA; i++)
     {
-        if (!levelDataLoaded[i].isLoaded || levelDataLoaded[i].level != currentLevel) break;
+        // TODO: add levelDataLoaded[i].level != currentLevel.id when have more levels
+        if (!levelDataLoaded[i].isLoaded) break;
         if (levelDataLoaded[i].isSpawned) continue;
         if (levelDataLoaded[i].whenSpawn < currentWorldOffset)
         {
@@ -173,8 +176,8 @@ GameState UpdateInGame(GameState gameState, float scaleRatio, float delta)
                     asteroid.position = positionToSpawn; 
                     asteroid.positionOffset = (Vector2){positionToSpawn.x, positionToSpawn.y + currentWorldOffset};
                     asteroid.acceleration = (Vector2){0, 0};
-                    asteroid.rotationSpeed = (float)GetRandomValue(-1, 1)/2;
-                    asteroid.health = levelDataLoaded[i].health;
+                    asteroid.rotationSpeed = (float)GetRandomValue(-1, 1) * 2; // TODO: this value should be fixed
+                    asteroid.health = levelDataLoaded[i].health * (currentLevel.difficult / levelDataLoaded[i].health);
 
                     entities[indexToUse].isAlive = true;
                     entities[indexToUse].type = ASTEROID;
@@ -382,7 +385,8 @@ void DrawInGame(GameState gameState, float scaleRatio)
             }
         }
         // DrawText(TextFormat("FPS: %i", GetFPS()), virtualLeftBorder + 10*scaleRatio, (int)((float)GetScreenHeight()*.1f), (int)(20.0f*scaleRatio), RED);
-        // DrawText(TextFormat("Score: %i", currentScore), (int)(virtualLeftBorder + 10.0f*scaleRatio), (int)((float)GetScreenHeight()*.1f), (int)(20.0f*scaleRatio), GREEN);
+        DrawText(TextFormat("Level: %i", currentLevel.id), 10, 40, 20, GREEN);
+        DrawText(TextFormat("offsetY: %3.3f", currentWorldOffset), 10, 80, 20, GREEN);
 
     }
     else 

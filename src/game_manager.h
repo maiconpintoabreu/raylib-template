@@ -40,6 +40,7 @@ Rectangle pauseMenuRec = {0};
 
 Texture2D pauseTexture = {0};
 
+Level levels[MAX_LEVEL_AMOUNT] = {0};
 
 void OnPause(void)
 {
@@ -96,6 +97,18 @@ void PlaceUIButtons(){
     pauseMenuRec.height = 32;
 }
 
+void CreateLevels(void)
+{
+    for (int i=0; i<MAX_LEVEL_AMOUNT; i++)
+    {
+        levels[i].id = i + 1;
+        levels[i].name = "Level: ";
+        levels[i].difficult = i + 1;
+        levels[i].size = 2900.0f;
+        levels[i].scoreAmount = 0;
+    }
+}
+
 bool CreateGameManager(void)
 {
 
@@ -119,7 +132,8 @@ bool CreateGameManager(void)
         virtualLeftBorder = (float)GetScreenWidth()*0.5f - (225.0f*scaleRatio);
         virtualRightBorder = (float)GetScreenWidth()*0.5f + (225.0f*scaleRatio);
     }
-    CreateInGame(scaleRatio, virtualLeftBorder, virtualRightBorder);
+    CreateLevels();
+    CreateInGame(levels[GetRandomValue(0, MAX_LEVEL_AMOUNT - 1)], scaleRatio, virtualLeftBorder, virtualRightBorder);
     PlaceUIButtons();
     Image pauseImage = GenImageColor(16, 16, BLANK);
     ImageDrawRectangleV(&pauseImage, (Vector2){4,0}, (Vector2){2,16}, WHITE);
@@ -177,6 +191,7 @@ bool UpdateDrawFrame(void)
                 if (MenuButton(startMenuRec, "Start Game"))
                 {
                     // Initialize game
+                    RestartInGame();
                     gameState = IN_GAME;
                 }
                 if (MenuButton(exitMenuRec, "Exit Game")){
@@ -191,6 +206,10 @@ bool UpdateDrawFrame(void)
             if (IsWindowFocused())
             {
                 gameState = UpdateInGame(gameState, scaleRatio, delta);
+                if (gameState != IN_GAME)
+                {
+                    break;
+                }
 
                 BeginDrawing();
                     ClearBackground(BLACK);
